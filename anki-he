@@ -36,21 +36,24 @@ run() { mkdir -p "$DATA" && (cd "$DATA" && "${PY[@]}" "$@"); }
 
 git_() { git -C "$DATA" "$@"; }
 is_repo() { git_ rev-parse --is-inside-work-tree >/dev/null 2>&1; }
-# Commit what is staged. If a pre-commit hook rewrites files, it aborts the commit:
-# re-stage the same files and retry once, so a commit is never silently lost.
+data_paths() { local d; for d in backups media snapshot; do [[ -e $DATA/$d ]] && echo "$d"; done; }
+# Commit only the data paths (never whatever else happens to be staged). If a pre-commit
+# hook rewrites files it aborts the commit: re-stage and retry once, so nothing is lost.
 commit() {
-    local staged
-    staged=$(git_ diff --cached --name-only)
-    git_ commit -q -m "$1" && return 0
-    # shellcheck disable=SC2086
-    (cd "$DATA" && git add -- $staged) && git_ commit -q -m "$1" && return 0
+    local DATA_PATHS; mapfile -t DATA_PATHS < <(data_paths)
+    git_ add -- "${DATA_PATHS[@]}" 2>/dev/null || true
+    git_ commit -q -m "$1" -- "${DATA_PATHS[@]}" && return 0
+    git_ add -- "${DATA_PATHS[@]}" 2>/dev/null || true
+    git_ commit -q -m "$1" -- "${DATA_PATHS[@]}" && return 0
     echo "anki-he: WARNING git commit failed (see hook output above)" >&2
     return 1
 }
 save() {  # commit backups/media/snapshot in DATA and push, if DATA is a git repo
     is_repo || return 0
-    git_ add backups media snapshot 2>/dev/null || true
-    if git_ diff --cached --quiet; then echo "anki-he: nothing to commit"; return 0; fi
+    local DATA_PATHS; mapfile -t DATA_PATHS < <(data_paths)
+    ((${#DATA_PATHS[@]})) || return 0
+    git_ add -- "${DATA_PATHS[@]}" 2>/dev/null || true
+    if git_ diff --cached --quiet -- "${DATA_PATHS[@]}"; then echo "anki-he: nothing to commit"; return 0; fi
     commit "$1" || return 1
     git_ push -q 2>/dev/null || { git_ pull -q --rebase && git_ push -q; } 2>/dev/null \
         || echo "anki-he: WARNING git push failed; commit is local only" >&2
