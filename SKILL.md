@@ -1,20 +1,22 @@
 ---
 name: hebrew-anki
-description: Turn Hebrew lesson material (pasted text, textbook screenshots, Zoom transcripts, word lists) into Anki notes in my "Everything" deck, deduplicated against the collection, and fix/improve existing Hebrew cards (glosses, IPA, mnemonics, verb links). Use when asked to add Hebrew words to Anki or change Hebrew cards.
+description: Turn Hebrew learning material (pasted text, textbook screenshots, lesson transcripts, SMS, word lists) into Anki notes synced with AnkiWeb, deduplicated against the collection, and fix/improve existing Hebrew cards (glosses, IPA, mnemonics, verb links). Use when asked to add Hebrew words to Anki or change Hebrew cards.
 ---
 
-You are building Anki flashcards for my Hebrew study. My native language is Russian.
-The source may be pasted text, image paths (textbook pages, screenshots), a Zoom
-transcript from my lesson, or a plain list of Russian/English/Hebrew items — usually one
+You are building Anki flashcards for the user's Hebrew study. The user's language is
+**Russian by default** — glosses, example translations, mnemonics and chat replies are in
+Russian; if the user writes in another language and asks for it, use that language with the
+same rules (the gloss field is `$ANKI_HE_GLOSS`). The source may be pasted text, image paths
+(textbook pages, screenshots), a lesson transcript, or a plain list of items — usually one
 word or set expression per line. Be proactive, and don't hesitate to fix or delete
-existing cards. Goal: every useful vocabulary item that is not already in my collection
+existing cards. Goal: every useful vocabulary item that is not already in the collection
 becomes a note, and the collection gets better each run.
 
 ## Tool
 
 Works the same under Claude Code and Codex. No Anki Desktop or Anki-Connect: the
 collection is synced with AnkiWeb directly. Code = this skill's directory; data (the
-collection, backups, snapshots) = a DATA directory the wrapper picks: `$ANKI_HE_DATA`, else
+collection, optional backups) = a DATA directory the wrapper picks: `$ANKI_HE_DATA`, else
 the git repo around the current directory if it has an `.anki-he` marker, else
 `~/.local/share/anki-he`. Credentials: `ANKIWEB_USERNAME`/`ANKIWEB_PASSWORD` from the
 environment or `DATA/.env`. Never print them.
@@ -22,19 +24,20 @@ environment or `DATA/.env`. Never print them.
 `A=<this skill's directory>/anki-he` — the one entry point. Don't write your own
 dump/search/sync scripts.
 - `$A check` — env sanity; if it fails, stop and report the error.
-- `$A pull` — sync from AnkiWeb (two-way, keeps local edits), back up, snapshot, dump.
+- `$A pull` — sync from AnkiWeb (two-way, keeps local edits) and dump; with
+  `ANKI_HE_BACKUP=1` also a `.colpkg` backup, media mirror and text snapshot in DATA.
 - `$A find TERM…` — Hebrew TERM matches the nikud-stripped skeleton and the ו/י-stripped
   form across all fields (short words: skeleton on the first field only); `~REGEX` matches
   any field case-insensitively. Pass ALL terms in ONE call.
 - `$A show ID…` — full fields of notes.
 - `$A sound WORD…` — notes closest by sound to a Russian-letter spelling («мугзам» →
   מֻגְזָם), via IPA similarity. Use it for every Hebrew word that arrives in Cyrillic.
-- `$A dups` — exact repeated «Русский перевод» across the deck.
+- `$A dups` — exact repeated glosses across the note type.
 - `$A apply FILE` — one batch: `{"add":[{fields}], "update":{"<id>":{fields}},
   "delete":[ids]}`; an add item may carry `"tags":[…]`. Re-dumps afterwards.
   Write FILE with a heredoc (no shell-escaping of Hebrew/IPA/Cyrillic), in a temp dir.
-- `$A push "MESSAGE"` — sync to AnkiWeb; if DATA is a git repo, commit backups/media/
-  snapshot there and git push.
+- `$A push "MESSAGE"` — sync to AnkiWeb; with backups on and DATA a git repo, also commit
+  backups/media/snapshot there and git push.
 - `$A tool NAME ARGS…` — helpers in `tools/`: `hard_cards [--all] [N] [--json]` (queue of
   notes missing parts of the card standard), `patch_cards PATCH OUT` (compact
   {id: {he, ipa, gloss, ex, tr, hint}} → apply file, keeps the Example layout),
@@ -53,7 +56,7 @@ help": bring the note up to the standard below (mnemonic, nikud, example, verb l
 gloss), push and report. No clarifying questions. If it already has a 💡 (sent again), that
 mnemonic failed — replace it, don't append; re-check the Russian front for ambiguity.
 
-**Voice input.** The user often dictates (speech-to-text). Expect:
+**Voice input.** The user may dictate (speech-to-text). Expect:
 - Hebrew words written in Russian letters, often distorted («мугзам», «битуй», «зманим»,
   «лехашкот») → `$A sound` them, take the top hit if its score is ≥ 0.85 or clearly above
   the rest; otherwise try the likely Hebrew spelling with `$A find`.
@@ -63,9 +66,9 @@ mnemonic failed — replace it, don't append; re-check the Russian front for amb
   the newest revlog entries); if neither fits, ask one short line naming the candidates.
 - Missing punctuation and run-on lists: split into separate items by meaning.
 
-## What makes a card stick (learned from this user, 2026-11)
+## What makes a card stick
 
-Every Hebrew+IPA+RU card should meet this; apply it whenever you touch a card.
+Every Hebrew card should meet this; apply it whenever you touch a card.
 1. **One meaning on the front.** The front is what the user must produce; two unrelated
    meanings («обращаться; поворачивать», «ответить / вернуть») make every answer half-wrong.
    Keep the core everyday meaning on the front; a second meaning goes into the hint line
@@ -75,9 +78,9 @@ Every Hebrew+IPA+RU card should meet this; apply it whenever you touch a card.
    not «согласно» (בְּכָפוּף), «извещение „посылка ждёт“» not «уведомление о получении», add the
    modern sense (תֹּכֶן — «контент»). Register in parentheses: (книжн.), (разг.), (офиц.).
 3. **Full nikud, uniform IPA, an example on every card — but the example is NOT what makes
-   it stick** (user, 2026-11-23: «примеры почти никогда не помогают»). It only helps when it
-   leans on something the user knows very well; so build it from surely-known words and a
-   familiar scene (SMS from the post/bank, shop, kids, doctor), keep it short, and never count
+   it stick** — examples rarely help unless they lean on something the user knows very
+   well; so build it from surely-known words and a familiar everyday scene (messages from a
+   bank or delivery service, shop, doctor, family), keep it short, and never count
    it as the fix for a failing card. The fix is the mnemonic (rule 5).
 4. **The vocabulary item, not the document.** From long official phrases keep only the word
    the user needs (שירותים ותכנים פרסומיים → just תֹּכֶן «контент»); base form, masculine
@@ -85,7 +88,7 @@ Every Hebrew+IPA+RU card should meet this; apply it whenever you touch a card.
    becomes one card with the rule in the hint (הָיָה צָרִיךְ).
 5. **Mnemonic for every hard card** (lapses ≥ 4, «Again» recently, or the user resent the
    card) — the main tool. One 💡 line about THIS word only. Method = the keyword method
-   (Atkinson 1975), tuned to this user:
+   (Atkinson 1975):
 
    **Rule: KEYWORD + MEANING DOING SOMETHING TOGETHER, felt in the body, matched on the stress.**
 
@@ -116,8 +119,8 @@ Every Hebrew+IPA+RU card should meet this; apply it whenever you touch a card.
    h) Binyan meaning as part of the scene when it's the point («хифиль = заставить:
       напои КОТА — לְהַשְׁקוֹת»).
    A resent card = failed mnemonic: throw it away and start from a), don't polish it.
-   The «от X» lines from the 2026-11 deck pass are weak; replace them when those cards turn
-   up as hard.
+   Bare «от X» hints already in the deck are weak; replace them when those cards turn up
+   as hard.
 6. **Connectors and function words** (עַל מְנָת, מִפְּנֵי, שְׁאָר, לָכֵן, אֵצֶל, לְהַלָּן) are the
    chronic failures: they have no image — always give them a typical sentence and a vivid
    sound-alike.
@@ -130,23 +133,21 @@ Every Hebrew+IPA+RU card should meet this; apply it whenever you touch a card.
    like «שער - ות», «הייתה - תהיה», a phrase duplicating a word card — get tag `fragment` and
    are suspended. Gender pairs «אַתָּה יָכוֹל… / אַתְּ יְכוֹלָה…» → masculine on the card, feminine in
    the hint.
-9. **Short.** The card is read on a 7" e-reader with large font; no Notes/Root fields,
-   one example, one hint line, one verb-link line at most.
+9. **Short.** Cards must fit a phone screen in a large font; no extra fields, one example,
+   one hint line, one verb-link line at most.
 
 `$A tool hard_cards` lists hard notes that still miss parts of this standard —
 work through it top-down in batches.
 
-Pasted real-life Hebrew (SMS, letters, ads, chats): ADD the useful new words/meanings right away — no confirmation
-needed (user's standing preference). Skip ad jargon, names, addresses and other personal data.
+Pasted real-life Hebrew (SMS, letters, ads, chats): ADD the useful new words/meanings right
+away — no confirmation needed. Skip ad jargon, names, addresses and other personal data.
+If the message looks like phishing, say so in one line.
 
-Sources arrive as pasted text, image files (textbook pages, screenshots) or Zoom
-transcripts (via `zoom-anki` → `hebrew-anki` on the laptop, or pasted in chat).
-
-## Fields (note type "Hebrew+IPA+RU")
+## Fields (note type `$ANKI_HE_MODEL`, default "Hebrew+IPA+RU")
 
 Always fill the first three:
 - "Hebrew" — word/expression with full nikud, e.g. לְהֵירָדֵם
-- "IPA transcription" — Modern Israeli IPA, one style for the whole deck (normalised 2026-11):
+- "IPA transcription" — Modern Israeli IPA, one style for the whole deck:
   - consonants: ʁ resh, x khaf/chet, t͡s tsadi, ʃ shin, ʒ/d͡ʒ/t͡ʃ for ז׳/ג׳/צ׳, j yod, g gimel;
     no ʔ/ʕ (alef/ayin omitted), no h for a silent final ה
   - vowels only a e i o u; diphthongs aj ej oj uj (בין → bejn, לפני → lifˈnej)
@@ -157,7 +158,7 @@ Always fill the first three:
   - phrases: construct forms as spoken — the first word shortens (שָׁחוֹר → שְׁחוֹר עוֹר ʃxoʁ oʁ,
     xaˈdaʁ ʃeˈna, bejt ˈʃemeʃ); ve/u as pronounced
   → leheʁaˈdem, kaʁˈtis bʁaˈxa, ʁiˈʃon let͡siˈjon
-- "Русский перевод" — lowercase, meanings comma-separated
+- gloss field (`$ANKI_HE_GLOSS`, default "Русский перевод") — lowercase, meanings comma-separated
 
 "Example" (every card) — огласованное предложение + `<br><span dir=ltr style="color:#999">перевод</span>`,
 then optionally the hint line `<br><span dir=ltr style="color:#b58a6a">💡 …</span>` and the
@@ -168,27 +169,29 @@ appended to "Example" linking them to their verb:
 `<span dir=ltr style="color:#6a8fb5">← לְהַרְשׁוֹת lehaʁˈʃot «разрешать» · хифиль</span>`
 (verb with nikud, its IPA — same as on the verb's own note — gloss, binyan)
 (binyan in Russian: пааль, пиэль, хифиль, нифаль, хитпаэль). If the verb has no note yet,
-add it too (with example). The user learns these nouns through their verbs.
+add it too (with example). Verbal nouns are learned through their verbs.
 
-Leave "Root+Binyan" and "Notes" EMPTY — they are hidden from the card template and the
-user finds them useless. Anything worth knowing goes elsewhere:
+Leave any other fields of the note type (e.g. "Notes", "Root+Binyan") EMPTY — long extra
+fields don't fit the screen and don't help. Anything worth knowing goes elsewhere:
 - register / nuance → a short parenthetical in the gloss: «когда (книжн.)», «ждать (формально)»;
 - a related word worth learning (colloquial twin, irregular form) → its own note, after the
   usual duplicate check;
 - otherwise drop it.
-When you touch an existing note with Notes/Root+Binyan filled, move the useful bits this
-way and clear both fields.
+When you touch an existing note with such fields filled, move the useful bits this way and
+clear them.
 
-Tags only if I ask for a lesson-date/source tag.
+Tags: `place`, `name`, `fragment` as above; a lesson-date/source tag when it helps to find
+the batch later.
 
 ## Duplicate check
 
-The collection is the known-word list, and this is where runs go wrong. My collection
-mixes ktiv male and ktiv haser (לחסום = לַחְסֹם, לתפוס = לִתְפֹּס), so always search the
+The collection is the known-word list, and this is where runs go wrong. Collections
+often mix ktiv male and ktiv haser (לחסום = לַחְסֹם, לתפוס = לִתְפֹּס), so always search the
 Hebrew skeleton AND a Russian-gloss regex — the gloss catches haser twins the short-word
 rule misses (חירום vs שְׁעַת חֵרוּם).
-- Legacy `Basic_`/`Basic+`/`Basic++`/`Hebrew v6` cards have English glosses and no nikud.
-  A word that only exists there is not a duplicate — add the proper note and report it.
+- Notes of other note types (older decks, shared decks) may hold the same word without
+  nikud or with an English gloss. A word that only exists there is not a duplicate — add
+  the proper note.
 - If it already exists, skip and report it; if the existing card is worse (no nikud, thin
   gloss, missing example, `/…/` or `[…]` around IPA, filled Notes/Root+Binyan), improve it instead of adding.
 - A shared consonantal skeleton is NOT proof of a duplicate — check nikud and binyan:
@@ -226,11 +229,11 @@ back empty at the end.
 - Verify every Hebrew word you produce actually exists. Fix obvious transcript typos
   (נודדי שינה → נְדוּדֵי שֵׁנָה) and report the correction.
 - For homonyms, pick the meaning that fits the lesson context (neighbouring lines are
-  clues) and flag the choice so I can confirm.
+  clues) and flag the choice in one line.
 
 ## Output
 
 Just do it and reply in one or two lines: how many cards added/changed, «синхронизируй».
-No translations, grammar notes, word lists or mnemonics in the chat — the user won't remember
-chat text, everything useful goes into the cards (user, 2026-11-23). Ask only when an item is
+No translations, grammar notes, word lists or mnemonics in the chat — chat text is not
+remembered, everything useful goes into the cards. Ask only when an item is
 truly ambiguous (which card?), in one short line.

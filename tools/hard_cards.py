@@ -7,7 +7,7 @@ python3 tools/hard_cards.py --all [N]    every note: hard ones first, then the r
                                          then new cards by queue position), places last
 add --json for machine-readable output.
 
-Hard = lapses >= 4, or any «Again» since 2026-11-15 (honest grading started), or lapse rate
+Hard = lapses >= 4, or any «Again» in the last ANKI_HE_RECENT_DAYS days (default 14), or lapse rate
 >= 15% with >= 2 lapses. Missing flags:
   N no nikud · E no example sentence (not required for `place` notes) · M no 💡 hint (hard notes only)
   F several meanings on the front (; or /)
@@ -16,6 +16,7 @@ Abbreviations (ט.ל.ח, מוצ״ש) are not flagged for nikud.
 
 import html
 import json
+import os
 import re
 import sys
 import time
@@ -26,7 +27,7 @@ from anki.collection import Collection
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import COL_PATH, GLOSS, MODEL
 
-SINCE = time.mktime((2026, 11, 15, 4, 0, 0, 0, 0, -1)) * 1000
+SINCE = (time.time() - int(os.environ.get("ANKI_HE_RECENT_DAYS", "14")) * 86400) * 1000
 
 
 def text(s):

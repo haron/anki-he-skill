@@ -1,4 +1,4 @@
-"""IPA normaliser used for the 2026-11 cleanup (style documented in the hebrew-anki skill).
+"""IPA normaliser (style documented in SKILL.md): writes proposed fixes, applies nothing.
 
 norm(p)       mechanical cleanup: brackets, dots, χ/ħ/r/ɾ/ɡ, kh/sh/ts/y, ʔ/ʕ, vowels -> a e i o u
 fix_stress(p) move ˈ from before the vowel to before the syllable onset (maskˈil -> masˈkil);
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config import DATA, GLOSS, MODEL
+from config import DUMP, GLOSS, MODEL
 
 
 def norm(p):
@@ -74,13 +74,11 @@ def fix_stress(p):
 
 def main():
     t = lambda s: re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>|&nbsp;", " ", s))).strip()
-    snapshot = DATA / "snapshot/notes.jsonl"
     rows = []
-    for line in snapshot.read_text().splitlines():
-        n = json.loads(line)
-        if n["type"] != MODEL:
+    for n in json.loads(DUMP.read_text()):
+        if n["model"] != MODEL:
             continue
-        f = n["fields"]
+        f = n["f"]
         old = f["IPA transcription"]
         rows.append({"id": n["id"], "he": t(f["Hebrew"]), "ru": t(f[GLOSS]), "old": old, "new": fix_stress(norm(old))})
     Path(sys.argv[1]).write_text(json.dumps(rows, ensure_ascii=False))

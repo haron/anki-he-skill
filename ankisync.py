@@ -2,9 +2,11 @@
 """Sync an Anki collection with AnkiWeb from a throwaway container.
 
 Commands:
-  pull    get the AnkiWeb collection into work/ (full download the first time, normal
-          two-way sync afterwards, so local edits survive), back it up, dump a snapshot
-  push    normal (incremental) sync of local changes back to AnkiWeb, re-dump snapshot
+  pull    get the AnkiWeb collection into DATA/work/ (full download the first time, normal
+          two-way sync afterwards, so local edits survive)
+  push    normal (incremental) sync of local changes back to AnkiWeb
+  With ANKI_HE_BACKUP=1 (or --backup) pull also writes a .colpkg backup, and pull/push
+  mirror media and dump a diffable text snapshot into DATA.
   status  what AnkiWeb thinks needs to happen
   dump    re-dump the text snapshot from work/ (no network)
 
@@ -29,7 +31,7 @@ from pathlib import Path
 from anki.collection import Collection
 from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
 
-from config import COL_PATH, DATA, WORK
+from config import BACKUP, COL_PATH, DATA, WORK
 
 ROOT = DATA
 STATE = WORK / "state.json"
@@ -109,7 +111,7 @@ def full_sync(col: Collection, auth: SyncAuth, server_usn: int, upload: bool) ->
 
 def cmd_pull(args) -> None:
     if COL_PATH.exists() and not args.force:
-        return incremental_pull()
+        return incremental_pull(args)
     if args.force and WORK.exists():
         for p in [COL_PATH, *WORK.glob("collection.anki2-*")]:
             p.unlink(missing_ok=True)
@@ -128,13 +130,14 @@ def cmd_pull(args) -> None:
             sys.exit("AnkiWeb collection looks empty; refusing to continue")
         sync_media(col, auth)
         log(f"{col.card_count()} cards, {col.note_count()} notes")
-        backup(col)
-        dump(col)
+        if BACKUP or args.backup:
+            backup(col)
+            dump(col)
     finally:
         col.close()
 
 
-def incremental_pull() -> None:
+def incremental_pull(args) -> None:
     """Local copy exists: normal two-way sync, so unpushed local edits are kept."""
     col = Collection(str(COL_PATH))
     try:
@@ -151,8 +154,9 @@ def incremental_pull() -> None:
         log(f"incremental sync: {Req.Name(out.required)}")
         sync_media(col, auth)
         log(f"{col.card_count()} cards, {col.note_count()} notes")
-        backup(col)
-        dump(col)
+        if BACKUP or args.backup:
+            backup(col)
+            dump(col)
     finally:
         col.close()
 
@@ -179,8 +183,9 @@ def cmd_push(args) -> None:
         else:
             log(f"sync result: {Req.Name(out.required)}")
         sync_media(col, auth)
-        mirror_media(col)
-        dump(col)
+        if BACKUP or args.backup:
+            mirror_media(col)
+            dump(col)
     finally:
         col.close()
 
@@ -279,9 +284,11 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("pull")
     p.add_argument("--force", action="store_true", help="discard local work/ copy and re-download")
+    p.add_argument("--backup", action="store_true", help="also back up, mirror media, dump a snapshot")
     p.set_defaults(fn=cmd_pull)
     p = sub.add_parser("push")
     p.add_argument("--force-upload", action="store_true")
+    p.add_argument("--backup", action="store_true", help="also mirror media, dump a snapshot")
     p.set_defaults(fn=cmd_push)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     sub.add_parser("dump").set_defaults(fn=cmd_dump)

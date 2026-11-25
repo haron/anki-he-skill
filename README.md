@@ -2,7 +2,7 @@
 
 An agent skill (Claude Code, Codex) that turns Hebrew lesson material — pasted text,
 textbook screenshots, lesson transcripts, SMS — into Anki cards, and keeps improving the
-existing ones: nikud, IPA, a precise Russian gloss, an everyday example and a sound-alike
+existing ones: nikud, IPA, a precise gloss (Russian by default), an everyday example and a sound-alike
 mnemonic. It talks to **AnkiWeb directly** (via the official `anki` Python package), so no
 Anki Desktop or AnkiConnect is needed — it works from a laptop or a throwaway cloud container.
 
@@ -22,14 +22,16 @@ Needs `python3` with `pip install -r requirements.txt`, or [uv](https://docs.ast
 |---|---|---|
 | `ANKIWEB_USERNAME`, `ANKIWEB_PASSWORD` | AnkiWeb login (or `ANKIWEB_HKEY`) | — |
 | `ANKI_HE_DATA` | where the collection, backups and snapshots live | see below |
-| `ANKI_HE_DECK` | deck for new notes | `Everything` |
+| `ANKI_HE_DECK` | deck for new notes | `Default` |
 | `ANKI_HE_MODEL` | note type of the Hebrew cards | `Hebrew+IPA+RU` |
 | `ANKI_HE_GLOSS` | its translation field | `Русский перевод` |
+| `ANKI_HE_BACKUP` | `1`: keep a `.colpkg` backup, media mirror and text snapshot in DATA on every pull/push | off |
+| `ANKI_HE_RECENT_DAYS` | window for «recently failed» in `hard_cards` | `14` |
 
 DATA is `$ANKI_HE_DATA`, else the git repo around the current directory if it contains an
 empty `.anki-he` file, else `~/.local/share/anki-he`. Variables may also be put in
-`DATA/.env`. If DATA is a git repo (e.g. a private one), every pull/push commits a backup
-(`.colpkg`), a media mirror and a diffable text snapshot there.
+`DATA/.env`. Backups are off by default (Anki keeps its own); with `ANKI_HE_BACKUP=1` and
+DATA a git repo (e.g. a private one), every pull/push also commits them there.
 
 The note type is expected to have the fields `Hebrew`, `IPA transcription`, the gloss
 field and `Example`.

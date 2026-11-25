@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Duplicate candidates for manual review (run after `ankisync.py pull` + `anki_he.py dump`).
+"""Duplicate candidates for manual review (run after `anki-he pull`).
 
 Pairs printed:
   [same-root+gloss]  same consonant skeleton (ו/י, prefixes, trailing prepositions ignored)
                      AND overlapping Russian gloss words
   [same-gloss]       identical first Russian meaning, different skeleton (usually synonyms)
-  [legacy]           single-word Basic_* note matching a Hebrew+IPA+RU note
+  [legacy]           single-word note of another note type matching a $ANKI_HE_MODEL note
 A shared skeleton is not proof (רָשׁוּם vs רִשּׁוּם) — always check by eye.
 """
 
@@ -25,7 +25,7 @@ from config import COL_PATH, DUMP, GLOSS, MODEL
 col = Collection(str(COL_PATH))
 susp = {nid for (nid,) in col.db.all("select distinct nid from cards where queue=-1")}
 col.close()
-notes = [n for n in json.loads(DUMP.read_text()) if n["model"] != "Hebrew v6" and n["id"] not in susp]
+notes = [n for n in json.loads(DUMP.read_text()) if n["id"] not in susp]
 t = lambda s: html.unescape(re.sub(r"<[^>]+>", " ", s)).replace("\xa0", " ").strip()
 sk = lambda s: re.sub(r"[֑-ׇ\"'?!.,;:()\-־–—/=]", " ", t(s)).split()
 hol = lambda w: re.sub("[וי]", "", w)
@@ -63,8 +63,8 @@ for n in he:
     ws = sk(n["f"]["Hebrew"])
     if len(ws) == 1:
         idx[hol(ws[0])].append(n)
-for l in (n for n in notes if n["model"].startswith("Basic")):
-    ws = sk(l["f"]["Hebrew"])
+for l in (n for n in notes if n["model"] != MODEL):
+    ws = sk(l["f"].get("Hebrew", ""))
     if len(ws) == 1:
         pairs += [("legacy", l, c) for c in idx.get(hol(ws[0]), [])]
 fmt = lambda n: f"{n['id']} {n['model'][:6]} | " + " | ".join(t(v)[:38] for v in list(n["f"].values())[:3])

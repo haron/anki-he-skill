@@ -8,9 +8,11 @@ DATA directory, chosen by the `anki-he` wrapper and passed down as ANKI_HE_DATA:
 Settings come from environment variables; a `.env` file (KEY=VALUE lines) in DATA is read
 too, real environment variables win:
     ANKIWEB_USERNAME, ANKIWEB_PASSWORD   AnkiWeb login (or ANKIWEB_HKEY, a session key)
-    ANKI_HE_DECK     deck for new notes and dumps        (default: Everything)
+    ANKI_HE_DECK     deck for new notes and dumps        (default: Default)
     ANKI_HE_MODEL    note type of the Hebrew cards       (default: Hebrew+IPA+RU)
     ANKI_HE_GLOSS    its translation field               (default: Русский перевод)
+    ANKI_HE_BACKUP   1 = on every pull/push also keep a .colpkg backup, a media mirror and a
+                     text snapshot in DATA (default: off — Anki's own backups are enough)
 """
 
 import os
@@ -36,6 +38,7 @@ def load_dotenv() -> None:
 
 
 load_dotenv()
-DECK = os.environ.get("ANKI_HE_DECK", "Everything")
+DECK = os.environ.get("ANKI_HE_DECK", "Default")
 MODEL = os.environ.get("ANKI_HE_MODEL", "Hebrew+IPA+RU")
 GLOSS = os.environ.get("ANKI_HE_GLOSS", "Русский перевод")
+BACKUP = os.environ.get("ANKI_HE_BACKUP", "").lower() in ("1", "true", "yes", "on")
