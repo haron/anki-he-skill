@@ -5,8 +5,8 @@ DATA directory, chosen by the `anki-he` wrapper and passed down as ANKI_HE_DATA:
     $ANKI_HE_DATA, else the git repo around the current directory if it has an `.anki-he`
     marker file, else ${XDG_DATA_HOME:-~/.local/share}/anki-he.
 
-Settings come from environment variables; a `.env` file (KEY=VALUE lines) in DATA is read
-too, real environment variables win:
+Settings come from environment variables and a `.env` file (KEY=VALUE lines) in DATA; the
+`.env` wins, so several DATA dirs (several AnkiWeb accounts) never pick up each other's login:
     ANKIWEB_USERNAME, ANKIWEB_PASSWORD   AnkiWeb login (or ANKIWEB_HKEY, a session key)
     ANKI_HE_DECK     deck for new notes and dumps        (default: Default)
     ANKI_HE_MODEL    note type of the Hebrew cards       (default: Hebrew+IPA+RU)
@@ -34,7 +34,7 @@ def load_dotenv() -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, val = line.removeprefix("export ").split("=", 1)
-        os.environ.setdefault(key.strip(), val.strip().strip("'\""))
+        os.environ[key.strip()] = val.strip().strip("'\"")
 
 
 load_dotenv()

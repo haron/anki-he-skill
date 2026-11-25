@@ -13,7 +13,7 @@ Commands:
 Credentials (environment variables):
   ANKIWEB_HKEY                          preferred, if you have it
   ANKIWEB_USERNAME + ANKIWEB_PASSWORD   otherwise; logs in each run
-Values may also live in DATA/.env (KEY=VALUE per line); see config.py for DATA.
+DATA/.env (KEY=VALUE per line) overrides them; see config.py.
 Optional: ANKIWEB_ENDPOINT (shard endpoint; normally learned automatically).
 """
 
@@ -118,6 +118,7 @@ def cmd_pull(args) -> None:
             p.unlink(missing_ok=True)
     WORK.mkdir(exist_ok=True)
     col = Collection(str(COL_PATH))
+    done = False
     try:
         auth = get_auth(col)
         out = col.sync_collection(auth, sync_media=False)
@@ -134,8 +135,12 @@ def cmd_pull(args) -> None:
         if BACKUP or args.backup:
             backup(col)
             dump(col)
+        done = True
     finally:
         col.close()
+        if not done:  # a failed first download must not leave an empty "local copy" behind
+            for p in [COL_PATH, *WORK.glob("collection.anki2-*")]:
+                p.unlink(missing_ok=True)
 
 
 def incremental_pull(args) -> None:

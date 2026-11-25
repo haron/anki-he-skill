@@ -30,7 +30,8 @@ Needs `python3` with `pip install -r requirements.txt`, or [uv](https://docs.ast
 
 DATA is `$ANKI_HE_DATA`, else the git repo around the current directory if it contains an
 empty `.anki-he` file, else `~/.local/share/anki-he`. Variables may also be put in
-`DATA/.env`. Backups are off by default (Anki keeps its own); with `ANKI_HE_BACKUP=1` and
+`DATA/.env` (which wins over the environment, so several DATA dirs can hold different
+accounts). Backups are off by default (Anki keeps its own); with `ANKI_HE_BACKUP=1` and
 DATA a git repo (e.g. a private one), every pull/push also commits them there.
 
 The note type is expected to have the fields `Hebrew`, `IPA transcription`, the gloss
