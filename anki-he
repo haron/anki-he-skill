@@ -5,7 +5,8 @@
 #   $ANKI_HE_DATA
 #   else the git repo around the current directory, if it contains an `.anki-he` marker
 #   else ${XDG_DATA_HOME:-~/.local/share}/anki-he
-# If DATA is a git repo, pull/push also commit backups/media/snapshot there and git push.
+# With backups on (ANKI_HE_BACKUP=1 or --backup) and DATA a git repo, pull/push also commit
+# backups/media/snapshot there and git push; otherwise DATA's git is never touched.
 # Credentials: ANKIWEB_USERNAME + ANKIWEB_PASSWORD (or ANKIWEB_HKEY), from the environment
 # or DATA/.env.
 set -euo pipefail
@@ -22,7 +23,7 @@ find_data() {
     fi
     echo "${XDG_DATA_HOME:-$HOME/.local/share}/anki-he"
 }
-DATA=$(find_data)
+DATA=$(realpath -m "$(find_data)")  # absolute: scripts run with DATA as cwd
 export ANKI_HE_DATA=$DATA
 
 if python3 -c 'import anki' 2>/dev/null; then
@@ -33,6 +34,10 @@ else
     die "need the 'anki' Python package (pip install -r $SKILL/requirements.txt) or uv"
 fi
 run() { mkdir -p "$DATA" && (cd "$DATA" && "${PY[@]}" "$@"); }
+cfg() { (cd "$SKILL" && "${PY[@]}" -c "import os, config; print($1)"); }
+# Backups (and so any git work in DATA) only when asked: ANKI_HE_BACKUP=1 (env or DATA/.env)
+# or --backup on pull/push.
+backup_on() { [[ " $* " == *" --backup "* ]] || [[ $(cfg config.BACKUP) == True ]]; }
 
 git_() { git -C "$DATA" "$@"; }
 is_repo() { git_ rev-parse --is-inside-work-tree >/dev/null 2>&1; }
@@ -80,11 +85,12 @@ cmd=${1:-}; shift || true
 case $cmd in
     check)
         run -c 'import anki' || die "Python env broken"
-        [[ -n ${ANKIWEB_HKEY:-} || -n ${ANKIWEB_USERNAME:-} || -f $DATA/.env || -f $DATA/work/state.json ]] \
+        [[ $(cfg "os.environ.get('ANKIWEB_HKEY') or os.environ.get('ANKIWEB_PASSWORD') and os.environ.get('ANKIWEB_USERNAME') or ''") ]] \
+            || [[ -f $DATA/work/state.json ]] \
             || die "no AnkiWeb credentials: set ANKIWEB_USERNAME and ANKIWEB_PASSWORD (or put them in $DATA/.env)"
         echo "anki-he: ok (data: $DATA)" ;;
     pull)
-        if is_repo; then
+        if backup_on "$@" && is_repo; then
             git_ pull -q --ff-only 2>/dev/null || echo "anki-he: git pull skipped (not fast-forward/offline)" >&2
             # On a side branch (e.g. a cloud session's claude/*), catch up with the default branch.
             main=$(git_ symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
@@ -95,13 +101,13 @@ case $cmd in
         fi
         run "$SKILL/ankisync.py" pull "$@"
         run "$SKILL/anki_he.py" dump
-        save "Backup and snapshot (anki-he pull)" ;;
+        if backup_on "$@"; then save "Backup and snapshot (anki-he pull)"; fi ;;
     find|show|dups|apply|dump|sound)
         run "$SKILL/anki_he.py" "$cmd" "$@" ;;
     push)
         msg=${1:-"Anki update via hebrew-anki"}
         run "$SKILL/ankisync.py" push "${@:2}"
-        save "$msg" ;;
+        if backup_on "${@:2}"; then save "$msg"; fi ;;
     status)
         run "$SKILL/ankisync.py" status ;;
     tool)

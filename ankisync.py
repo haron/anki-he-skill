@@ -53,22 +53,23 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     WORK.mkdir(exist_ok=True)
     STATE.write_text(json.dumps(state, indent=2))
+    STATE.chmod(0o600)  # holds the AnkiWeb session key
 
 
 def get_auth(col: Collection) -> SyncAuth:
     state = load_state()
     endpoint = state.get("endpoint") or os.environ.get("ANKIWEB_ENDPOINT") or None
-    hkey = state.get("hkey") or os.environ.get("ANKIWEB_HKEY")
+    user = os.environ.get("ANKIWEB_USERNAME")
+    pw = os.environ.get("ANKIWEB_PASSWORD")
+    hkey = os.environ.get("ANKIWEB_HKEY") or (state.get("hkey") if state.get("user") == user else None)
     if not hkey:
-        user = os.environ.get("ANKIWEB_USERNAME")
-        pw = os.environ.get("ANKIWEB_PASSWORD")
         if not (user and pw):
             sys.exit("No credentials: set ANKIWEB_HKEY or ANKIWEB_USERNAME/ANKIWEB_PASSWORD")
         log("logging in to AnkiWeb")
         auth = col.sync_login(username=user, password=pw, endpoint=endpoint)
         hkey = auth.hkey
         endpoint = auth.endpoint or endpoint
-    state.update(hkey=hkey, endpoint=endpoint)
+    state.update(hkey=hkey, endpoint=endpoint, user=user)
     save_state(state)
     auth = SyncAuth(hkey=hkey)
     if endpoint:

@@ -26,7 +26,7 @@ dump/search/sync scripts.
 - `$A check` — env sanity; if it fails, stop and report the error.
 - `$A pull` — sync from AnkiWeb (two-way, keeps local edits) and dump; with
   `ANKI_HE_BACKUP=1` also a `.colpkg` backup, media mirror and text snapshot in DATA.
-- `$A find TERM…` — Hebrew TERM matches the nikud-stripped skeleton and the ו/י-stripped
+- `$A find TERM…` — searches the whole collection. Hebrew TERM matches the nikud-stripped skeleton and the ו/י-stripped
   form across all fields (short words: skeleton on the first field only); `~REGEX` matches
   any field case-insensitively. Pass ALL terms in ONE call.
 - `$A show ID…` — full fields of notes.
@@ -37,7 +37,7 @@ dump/search/sync scripts.
   "delete":[ids]}`; an add item may carry `"tags":[…]`. Re-dumps afterwards.
   Write FILE with a heredoc (no shell-escaping of Hebrew/IPA/Cyrillic), in a temp dir.
 - `$A push "MESSAGE"` — sync to AnkiWeb; with backups on and DATA a git repo, also commit
-  backups/media/snapshot there and git push.
+  backups/media/snapshot there and git push (with backups off DATA's git is never touched).
 - `$A tool NAME ARGS…` — helpers in `tools/`: `hard_cards [--all] [N] [--json]` (queue of
   notes missing parts of the card standard), `patch_cards PATCH OUT` (compact
   {id: {he, ipa, gloss, ex, tr, hint}} → apply file, keeps the Example layout),

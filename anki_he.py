@@ -3,7 +3,7 @@
 
 Port of dotfiles/skills/hebrew-anki/anki-he; same commands, but no Anki-Connect.
 
-anki_he.py dump              dump deck $ANKI_HE_DECK to DATA/work/he-dump.json
+anki_he.py dump              dump all notes to DATA/work/he-dump.json
 anki_he.py find TERM...      Hebrew TERM: skeleton/hollow match; ~REGEX: any field
 anki_he.py show ID...        all fields of the given notes
 anki_he.py sound WORD...     closest notes by sound: Russian-letter spelling («мугзам») vs IPA
@@ -62,7 +62,7 @@ def dump(col=None):
     col = col or open_col()
     try:
         out = []
-        for nid in col.find_notes(f'deck:"{DECK}"'):
+        for nid in col.find_notes(""):  # whole collection: duplicates hide in other decks too
             note = col.get_note(nid)
             out.append({"id": nid, "model": note.note_type()["name"], "f": dict(note.items())})
     finally:
@@ -116,6 +116,10 @@ def apply(file):
     col = open_col()
     errors = []
     try:
+        model = col.models.by_name(MODEL)
+        did = col.decks.id(DECK, create=False)
+        if spec.get("add") and not (model and did):
+            sys.exit(f"anki_he: note type {MODEL!r} or deck {DECK!r} not found (ANKI_HE_MODEL / ANKI_HE_DECK)")
         for i, fields in spec.get("update", {}).items():
             try:
                 note = col.get_note(int(i))
@@ -126,8 +130,6 @@ def apply(file):
                 errors.append(("update", i, str(e)))
         if spec.get("delete"):
             col.remove_notes([int(i) for i in spec["delete"]])
-        model = col.models.by_name(MODEL)
-        did = col.decks.id(DECK, create=False)
         for fields in spec.get("add", []):
             fields = dict(fields)
             tags = fields.pop("tags", [])
