@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Entry point of the hebrew-anki skill. The code lives next to this file (resolved through
+# symlinks, so ~/.claude/skills/hebrew-anki -> checkout works); the collection, backups and
+# snapshots live in a DATA directory:
+#   $ANKI_HE_DATA
+#   else the git repo around the current directory, if it contains an `.anki-he` marker
+#   else ${XDG_DATA_HOME:-~/.local/share}/anki-he
+# If DATA is a git repo, pull/push also commit backups/media/snapshot there and git push.
+# Credentials: ANKIWEB_USERNAME + ANKIWEB_PASSWORD (or ANKIWEB_HKEY), from the environment
+# or DATA/.env.
+set -euo pipefail
+
+SELF=$(readlink -f "${BASH_SOURCE[0]}")
+SKILL=$(dirname "$SELF")
+die() { echo "anki-he: $*" >&2; exit 1; }
+
+find_data() {
+    if [[ -n ${ANKI_HE_DATA:-} ]]; then echo "$ANKI_HE_DATA"; return; fi
+    local top
+    if top=$(git rev-parse --show-toplevel 2>/dev/null) && [[ -f $top/.anki-he ]]; then
+        echo "$top"; return
+    fi
+    echo "${XDG_DATA_HOME:-$HOME/.local/share}/anki-he"
+}
+DATA=$(find_data)
+export ANKI_HE_DATA=$DATA
+
+if python3 -c 'import anki' 2>/dev/null; then
+    PY=(python3)
+elif command -v uv >/dev/null; then
+    PY=(uv run -q --no-project --with-requirements "$SKILL/requirements.txt" python3)
+else
+    die "need the 'anki' Python package (pip install -r $SKILL/requirements.txt) or uv"
+fi
+run() { mkdir -p "$DATA" && (cd "$DATA" && "${PY[@]}" "$@"); }
+
+git_() { git -C "$DATA" "$@"; }
+is_repo() { git_ rev-parse --is-inside-work-tree >/dev/null 2>&1; }
+# Commit what is staged. If a pre-commit hook rewrites files, it aborts the commit:
+# re-stage the same files and retry once, so a commit is never silently lost.
+commit() {
+    local staged
+    staged=$(git_ diff --cached --name-only)
+    git_ commit -q -m "$1" && return 0
+    # shellcheck disable=SC2086
+    (cd "$DATA" && git add -- $staged) && git_ commit -q -m "$1" && return 0
+    echo "anki-he: WARNING git commit failed (see hook output above)" >&2
+    return 1
+}
+save() {  # commit backups/media/snapshot in DATA and push, if DATA is a git repo
+    is_repo || return 0
+    git_ add backups media snapshot 2>/dev/null || true
+    if git_ diff --cached --quiet; then echo "anki-he: nothing to commit"; return 0; fi
+    commit "$1" || return 1
+    git_ push -q 2>/dev/null || { git_ pull -q --rebase && git_ push -q; } 2>/dev/null \
+        || echo "anki-he: WARNING git push failed; commit is local only" >&2
+}
+
+usage() {
+    cat >&2 <<'USAGE'
+anki-he check              verify Python env and credentials (exit 1 if broken)
+anki-he pull               sync from AnkiWeb (keeps local edits), backup, snapshot, dump
+anki-he find TERM...       Hebrew TERM: skeleton/hollow match; ~REGEX: any field
+anki-he sound WORD...      notes closest by sound to a Russian-letter spelling (voice input)
+anki-he show ID...         all fields of the given notes
+anki-he dups               repeated glosses across the Hebrew note type
+anki-he apply FILE         {"add":[fields], "update":{id: fields}, "delete":[ids]}
+anki-he push "MESSAGE"     sync to AnkiWeb (and commit/push DATA if it is a git repo)
+anki-he tool NAME ARGS...  run tools/NAME.py (hard_cards, patch_cards, check_cards, ...)
+anki-he fit                (re)wrap card templates with the auto-fit script
+anki-he data | skill       print the DATA / skill directory
+USAGE
+    exit 2
+}
+
+cmd=${1:-}; shift || true
+case $cmd in
+    check)
+        run -c 'import anki' || die "Python env broken"
+        [[ -n ${ANKIWEB_HKEY:-} || -n ${ANKIWEB_USERNAME:-} || -f $DATA/.env || -f $DATA/work/state.json ]] \
+            || die "no AnkiWeb credentials: set ANKIWEB_USERNAME and ANKIWEB_PASSWORD (or put them in $DATA/.env)"
+        echo "anki-he: ok (data: $DATA)" ;;
+    pull)
+        if is_repo; then
+            git_ pull -q --ff-only 2>/dev/null || echo "anki-he: git pull skipped (not fast-forward/offline)" >&2
+            # On a side branch (e.g. a cloud session's claude/*), catch up with the default branch.
+            main=$(git_ symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
+            if [[ $(git_ branch --show-current) != "${main#origin/}" ]]; then
+                git_ fetch -q origin "${main#origin/}" 2>/dev/null && git_ merge -q --no-edit "$main" 2>/dev/null \
+                    || echo "anki-he: could not merge $main" >&2
+            fi
+        fi
+        run "$SKILL/ankisync.py" pull "$@"
+        run "$SKILL/anki_he.py" dump
+        save "Backup and snapshot (anki-he pull)" ;;
+    find|show|dups|apply|dump|sound)
+        run "$SKILL/anki_he.py" "$cmd" "$@" ;;
+    push)
+        msg=${1:-"Anki update via hebrew-anki"}
+        run "$SKILL/ankisync.py" push "${@:2}"
+        save "$msg" ;;
+    status)
+        run "$SKILL/ankisync.py" status ;;
+    tool)
+        name=${1:?tool name}; shift
+        [[ -f $SKILL/tools/$name.py ]] || die "no tool $name (see $SKILL/tools)"
+        run "$SKILL/tools/$name.py" "$@" ;;
+    fit)
+        run "$SKILL/fit_templates.py" ;;
+    data|root) echo "$DATA" ;;
+    skill) echo "$SKILL" ;;
+    *) usage ;;
+esac

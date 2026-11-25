@@ -1,0 +1,9 @@
+/*fit:v3*/
+.fit { max-width: 100%; overflow-wrap: anywhere; word-wrap: break-word; }
+.fit img, .fit video { max-width: 100%; height: auto; }
+.fit table { max-width: 100%; }
+.fit td, .fit th { overflow-wrap: anywhere; }
+.he-big { font-size: 1.35em; }
+/* AnkiDroid = e-ink reader: everything pure black, no grey/colour */
+.android:not(.nightMode):not(.night_mode) .fit,
+.android:not(.nightMode):not(.night_mode) .fit * { color: #000 !important; opacity: 1 !important; }

@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-linter
+        name: Run make linter
+        entry: make linter
+        language: system
+        pass_filenames: false

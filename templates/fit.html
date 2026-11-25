@@ -1,0 +1,50 @@
+<!--fit:v2--><script>
+/* 1) Enlarge every Hebrew run. 2) Shrink the card until it fits the screen. */
+(function () {
+  var HE = /[֐-׿יִ-ﭏ]+(?:[\s"'.,:;!?()־׳״–—-]*[֐-׿יִ-ﭏ]+)*/g;
+  function bigHebrew(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), nodes = [], n;
+    while ((n = w.nextNode())) {
+      var p = n.parentNode;
+      if (p.closest && p.closest('.he-big, script, style')) continue;
+      HE.lastIndex = 0;
+      if (HE.test(n.nodeValue)) nodes.push(n);
+    }
+    nodes.forEach(function (t) {
+      var s = t.nodeValue, frag = document.createDocumentFragment(), last = 0, m;
+      HE.lastIndex = 0;
+      while ((m = HE.exec(s))) {
+        if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+        var sp = document.createElement('span');
+        sp.className = 'he-big'; sp.textContent = m[0];
+        frag.appendChild(sp); last = m.index + m[0].length;
+      }
+      if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+      t.parentNode.replaceChild(frag, t);
+    });
+  }
+  function over() {
+    var de = document.documentElement;
+    return de.scrollHeight > window.innerHeight + 1 || de.scrollWidth > de.clientWidth + 1;
+  }
+  function fit() {
+    var el = document.querySelector('.fit');
+    if (!el) return;
+    el.style.zoom = 1;
+    if (!over()) return;
+    var lo = 0.4, hi = 1;
+    for (var i = 0; i < 8; i++) {
+      var m = (lo + hi) / 2;
+      el.style.zoom = m;
+      if (over()) hi = m; else lo = m;
+    }
+    el.style.zoom = lo;
+  }
+  var root = document.querySelector('.fit');
+  if (root) bigHebrew(root);
+  fit(); setTimeout(fit, 60); setTimeout(fit, 400);
+  window.addEventListener('resize', fit);
+  var imgs = document.querySelectorAll('.fit img');
+  for (var i = 0; i < imgs.length; i++) imgs[i].addEventListener('load', fit);
+})();
+</script>
